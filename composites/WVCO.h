@@ -163,6 +163,8 @@ public:
         SNAP_PARAM,
         SNAP2_PARAM,          // This is unused now
         PATCH_VERSION_PARAM,  // just for backwards compatibility with patch loading 19
+        DO_FM_NOT_PM_PARAM,
+        SET_F_TO_ZERO_PARAM,
         NUM_PARAMS
     };
 
@@ -343,10 +345,15 @@ inline void WVCO<TBase>::stepm() {
 
     const bool sync = TBase::inputs[SYNC_INPUT].isConnected();
 
+    const bool doFM = TBase::params[DO_FM_NOT_PM_PARAM].value > .5;
+    const bool setFZero = TBase::params[SET_F_TO_ZERO_PARAM].value > .5;
+
     for (int bank = 0; bank < numBanks_m; ++bank) {
         dsp[bank].waveform = wf;
         dsp[bank].setSyncEnable(sync);
         dsp[bank].waveformOffset = baseOffset_m;
+        dsp[bank].setDoFM(doFM);
+        dsp[bank].setSetFZero(setFZero);
     }
 
     // these numbers here are just values found by experimenting - no math.
@@ -398,6 +405,8 @@ inline void WVCO<TBase>::stepm() {
     enableAdsrFeedback = TBase::params[ADSR_FBCK_PARAM].value > .5;
     enableAdsrFM = TBase::params[ADSR_LFM_DEPTH_PARAM].value > .5;
     enableAdsrShape = TBase::params[ADSR_SHAPE_PARAM].value > .5;
+
+   
 }
 
 template <class TBase>
@@ -655,6 +664,12 @@ inline IComposite::Config WVCODescription<TBase>::getParamValue(int i) {
             break;
         case WVCO<TBase>::PATCH_VERSION_PARAM:
             ret = {0, 10, 0, "patch version"};
+            break;
+        case WVCO<TBase>::DO_FM_NOT_PM_PARAM:
+            ret = {0, 1, 0, "use fm"};
+            break;
+        case WVCO<TBase>::SET_F_TO_ZERO_PARAM:
+            ret = {0, 1, 0, "set f to zero"};
             break;
         default:
             assert(false);

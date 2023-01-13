@@ -313,7 +313,7 @@ void WVCOWidget::appendContextMenu(Menu *menu)
     MenuLabel *spacerLabel = new MenuLabel();
 	menu->addChild(spacerLabel);
     
-#if 0
+#if 1   // I don't know why these were turned off?
     MenuLabel *spacerLabel2 = new MenuLabel();
     menu->addChild(spacerLabel2);
     SqMenuItem_BooleanParam2 * item = new SqMenuItem_BooleanParam2(module, Comp::SNAP_PARAM);
@@ -334,6 +334,18 @@ void WVCOWidget::appendContextMenu(Menu *menu)
             item->text = "Hookup Modulator";
             menu->addChild(item);
         }
+    }
+
+    {
+        auto item = new SqMenuItem_BooleanParam2(module, Comp::DO_FM_NOT_PM_PARAM);
+        item->text = "Use FM";
+        menu->addChild(item);
+    }
+
+     {
+        auto item = new SqMenuItem_BooleanParam2(module, Comp::SET_F_TO_ZERO_PARAM);
+        item->text = "Freq Zero";
+        menu->addChild(item);
     }
 }
 
