@@ -612,6 +612,6 @@ WVCOWidget::WVCOWidget(WVCOModule *mod) : module(mod)
 
 }
 
-Model *modelWVCOModule = createModel<WVCOModule, WVCOWidget>("squinkylabs-wvco");
+Model *modelWVCOModule = createModel<WVCOModule, WVCOWidget>("acmeworks-wvco");
 #endif
 
