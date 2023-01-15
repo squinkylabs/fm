@@ -176,7 +176,7 @@ private:
     std::shared_ptr<LookupTableParams<T>> expLookup = ObjectCache<T>::getExp2();
 
     static const int oversampleRate = 4;
-    IIRUpsampler up;
+    IIRUpsampler<float> up;
     IIRDecimator<float> down;
 
     AsymWaveShaper shaper;

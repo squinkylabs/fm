@@ -2,8 +2,10 @@
 #pragma once
 
 #include "IIRDecimator.h"
+#include "IIRUpsampler.h"
 #include "SimdBlocks.h"
 #include "simd.h"
+#include "asserts.h"
 
 /**
  * SIMD FM VCO block
@@ -17,9 +19,13 @@ public:
 
     static const int oversampleRate = 4;
     float_4 buffer[oversampleRate];
+    float_4 fmBuffer[oversampleRate];
     float_4 lastOutput = float_4(0);
     WVCODsp() {
         downsampler.setup(oversampleRate);
+        upsampler.setup(oversampleRate);
+        WARN("WVCOdsp");
+
     }
 
 #ifdef _OPTSIN
@@ -67,53 +73,64 @@ public:
                 float_4 deltaSync = syncValue - lastSyncValue;
                 syncCrossing = float_4(1.f) - syncValue / deltaSync;
                 syncCrossing *= float_4(oversampleRate);
-                // syncIndex = syncCrossing;
                 float_4 syncIndexF = SimdBlocks::ifelse(justCrossed, syncCrossing, float_4(-1));
                 syncIndex = syncIndexF;
             }
-            // now make a
             lastSyncValue = syncValue;
         }
     }
 
-    float_4 step(float_4 syncValue) {
+    inline float_4 step(float_4 syncValue, bool oversampleFM) {
 #ifdef _OPTSIN
         if (!syncEnabled && (waveform == WaveForm::Sine)) {
             return stepSin();
         }
 #endif
-        // printf("not doing ops. sy=%d wv = %d\n", syncEnabled, waveform);
-        //  bool synced = false;
+       // WARN("in dsp step, ove=%d",  oversampleFM);
         int32_4 syncIndex = int32_t(-1);  // Index in the oversample loop where sync occurs [0, OVERSAMPLE)
         doSync(syncValue, syncIndex);
 
-        float_4 phaseMod = (feedback * lastOutput);
-        phaseMod += fmInput;
+        float_4 phaseMod = float_4(1, 2, 3, 4);
+        if (oversampleFM) {
+            upsampler.process(fmBuffer, fmInput);
+        } else {
+            phaseMod = (feedback * lastOutput);
+            phaseMod += fmInput;
+            fmBuffer[0] = phaseMod;
+        }
 
         for (int i = 0; i < oversampleRate; ++i) {
             float_4 syncNow = float_4(syncIndex) == float_4::zero();
             simd_assertMask(syncNow);
 
-            stepOversampled(i, phaseMod, syncNow);
-            // buffer[i] = 0;
+            if (oversampleFM) {
+                phaseMod = fmBuffer[i];
+            }
+            stepOversampled(i, phaseMod, syncNow, oversampleFM);
             syncIndex -= int32_t(1);
         }
         if (oversampleRate == 1) {
             return buffer[0] * outputLevel;
         } else {
             float_4 finalSample = downsampler.process(buffer);
-            // printf("dsp step using output level %s\n", toStr(outputLevel).c_str());
             finalSample += waveformOffset;
             lastOutput = finalSample;
             return finalSample * outputLevel;
         }
     }
 
-    // modulation may be phase modulation of freq modulation
-    void stepOversampled(int bufferIndex, float_4 modulation, float_4 syncNow) {
+    // Modulation may be phase modulation or freq modulation
+    // but if oversampled will not include feedback.
+    inline void stepOversampled(int bufferIndex, const float_4 baseModulation, float_4 syncNow, bool oversampledFM) {
         if (!this->setFZero) {
             phaseAcc += normalizedFreq;
         }
+
+        float_4 modulation = baseModulation;
+        if (oversampledFM) {
+            modulation += (feedback * lastOutput);
+        }
+
         if (this->doFMEnabled) {
             // In FM mode, scale down the modulation
             phaseAcc += (modulation * float_4(.01));
@@ -128,7 +145,6 @@ public:
             phase = SimdBlocks::wrapPhase01(phaseAcc + modulation);
         }
 
-        // SimdBlocks::wrapPhase01(phaseAcc + phaseModulation);
         float_4 s;
         if (waveform == WaveForm::Fold) {
             s = SimdBlocks::sinTwoPi(phase * twoPi);
@@ -145,8 +161,9 @@ public:
         } else {
             s = 0;
         }
- 
+
         buffer[bufferIndex] = s;
+        lastOutput = s + waveformOffset;
     }
 
     void setSyncEnable(bool f) {
@@ -183,6 +200,7 @@ private:
     float_4 phaseAcc = float_4::zero();
     float_4 lastSyncValue = float_4::zero();
     IIRDecimator<float_4> downsampler;
+    IIRUpsampler<float_4> upsampler;
 
     bool syncEnabled = false;
     bool doFMEnabled = false;

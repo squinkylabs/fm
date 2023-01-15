@@ -10,6 +10,7 @@
  * takes a single sample at a lower sample rate, and converts it
  * to a buffer of data at the higher sample rate
  */
+template <typename T>
 class IIRUpsampler
 {
 public:
@@ -22,7 +23,7 @@ public:
     void setup(int oversampleFactor)
     {
         oversample = oversampleFactor;
-        params = ObjectCache<float>::get6PLPParams(1.f / (4.0f * oversample));
+        params = ObjectCache<T>::get6PLPParams(1.f / (4.0f * oversample));
     }
 
     /**
@@ -35,14 +36,14 @@ public:
      * repeating the data like [a, a, a, a, b, b, b, b] would give a slight roll-off that
      * we don't want.
      */
-    void process(float * outputBuffer, float input)
+    void process(T * outputBuffer, T input)
     {
         // The zero packing reduced the overall volume. To preserve the volume,
         // multiply be the reduction amount, which is oversample.
         input *= oversample;
 
         for (int i = 0; i < oversample; ++i) {
-            outputBuffer[i] = BiquadFilter<float>::run(input, state, *params);
+            outputBuffer[i] = BiquadFilter<T>::run(input, state, *params);
             input = 0;      // just filter a delta - don't average the whole signal (i.e. zero pack)
         }
     }
@@ -50,6 +51,6 @@ public:
 private:
     int oversample = 16;
 
-    std::shared_ptr<BiquadParams<float, 3>> params;
-    BiquadState<float, 3> state;
+    std::shared_ptr<BiquadParams<T, 3>> params;
+    BiquadState<T, 3> state;
 };

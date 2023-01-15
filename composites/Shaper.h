@@ -141,7 +141,7 @@ private:
         BiquadParams<Thpf, 2> dcBlockParams;
         BiquadState<Thpf, 2> dcBlockState;
 
-        IIRUpsampler up;
+        IIRUpsampler<float> up;
         IIRDecimator<float> dec;
 
         bool isActive = false;

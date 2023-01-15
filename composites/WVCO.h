@@ -165,6 +165,7 @@ public:
         PATCH_VERSION_PARAM,  // just for backwards compatibility with patch loading 19
         DO_FM_NOT_PM_PARAM,
         SET_F_TO_ZERO_PARAM,
+        OVERSAMPLE_FM,      // when true, the FM modulator is up-sampled
         NUM_PARAMS
     };
 
@@ -240,6 +241,7 @@ private:
     bool enableAdsrFeedback = false;
     bool enableAdsrFM = false;
     bool enableAdsrShape = false;
+    bool oversampleFM = false;
 
     float_4 getOscFreq(int bank);
 
@@ -405,8 +407,7 @@ inline void WVCO<TBase>::stepm() {
     enableAdsrFeedback = TBase::params[ADSR_FBCK_PARAM].value > .5;
     enableAdsrFM = TBase::params[ADSR_LFM_DEPTH_PARAM].value > .5;
     enableAdsrShape = TBase::params[ADSR_SHAPE_PARAM].value > .5;
-
-   
+    oversampleFM = TBase::params[OVERSAMPLE_FM].value > .5;
 }
 
 template <class TBase>
@@ -565,7 +566,7 @@ inline void WVCO<TBase>::step()
         for (int bank = 0; bank < numBanks_m; ++bank) {
             const int baseChannel = 4 * bank;
             dsp[bank].fmInput = 0;
-            float_4 v = dsp[bank].step(float_4::zero());
+            float_4 v = dsp[bank].step(float_4::zero(),  this->oversampleFM);
             WVCO<TBase>::outputs[MAIN_OUTPUT].setVoltageSimd(v, baseChannel);
         }
     } else {
@@ -590,7 +591,7 @@ inline void WVCO<TBase>::step()
 
             Port& syncPort = WVCO<TBase>::inputs[SYNC_INPUT];
             const float_4 syncInput = syncPort.getPolyVoltageSimd<float_4>(baseChannel);
-            float_4 v = dsp[bank].step(syncInput);
+            float_4 v = dsp[bank].step(syncInput, this->oversampleFM);
             WVCO<TBase>::outputs[MAIN_OUTPUT].setVoltageSimd(v, baseChannel);
         }
     }
@@ -666,10 +667,13 @@ inline IComposite::Config WVCODescription<TBase>::getParamValue(int i) {
             ret = {0, 10, 0, "patch version"};
             break;
         case WVCO<TBase>::DO_FM_NOT_PM_PARAM:
-            ret = {0, 1, 0, "use fm"};
+            ret = {0, 1, 0, "Use fm"};
             break;
         case WVCO<TBase>::SET_F_TO_ZERO_PARAM:
-            ret = {0, 1, 0, "set f to zero"};
+            ret = {0, 1, 0, "Set f to zero"};
+            break;
+         case WVCO<TBase>::OVERSAMPLE_FM:
+            ret = {0, 1, 0, "Oversample FM"};
             break;
         default:
             assert(false);
